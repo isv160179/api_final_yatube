@@ -3,10 +3,17 @@ from rest_framework import viewsets, permissions, mixins, filters
 from rest_framework.pagination import LimitOffsetPagination
 
 from posts.models import Post, Group
-from .permissions import IsAuthorPostOrReadOnly, IsAuthorCommentOrReadOnly
-from .permissions import ReadOnly
-from .serializers import GroupSerializer, FollowSerializer
-from .serializers import PostSerializer, CommentSerializer
+from .mixins import PermissionForRetrieveMixin
+from .permissions import (
+    IsAuthorPostOrReadOnly,
+    IsAuthorCommentOrReadOnly
+)
+from .serializers import (
+    GroupSerializer,
+    FollowSerializer,
+    PostSerializer,
+    CommentSerializer
+)
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
@@ -15,14 +22,7 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = (permissions.AllowAny,)
 
 
-class PermissionForRetrieveViewSet(viewsets.ModelViewSet):
-    def get_permissions(self):
-        if self.action == "retrieve":
-            return (ReadOnly(),)
-        return super().get_permissions()
-
-
-class PostViewSet(PermissionForRetrieveViewSet):
+class PostViewSet(PermissionForRetrieveMixin):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     pagination_class = LimitOffsetPagination
@@ -32,7 +32,7 @@ class PostViewSet(PermissionForRetrieveViewSet):
         serializer.save(author=self.request.user)
 
 
-class CommentViewSet(PermissionForRetrieveViewSet):
+class CommentViewSet(PermissionForRetrieveMixin):
     serializer_class = CommentSerializer
     permission_classes = (IsAuthorCommentOrReadOnly,)
 
@@ -46,9 +46,11 @@ class CommentViewSet(PermissionForRetrieveViewSet):
         serializer.save(author=self.request.user, post=self.__get_post())
 
 
-class FollowViewSet(mixins.CreateModelMixin,
-                    mixins.ListModelMixin,
-                    viewsets.GenericViewSet):
+class FollowViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet
+):
     serializer_class = FollowSerializer
     filter_backends = (filters.SearchFilter,)
     search_fields = ('following__username',)
